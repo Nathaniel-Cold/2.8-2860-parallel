@@ -17,6 +17,6 @@ For the parallel speed-up S, please note that:
 
 No. Threads:   Mean time (average of 3 runs) in seconds:        Parallel speed-up, S:
 ============   =========================================        =====================
-1                                                                                                                 
-2                                                                                                          
-4                                                                                                                                
+1              0.348885                                         1.00                                                          
+2              0.421755                                         0.827                                                   
+4              0.410222                                         0.850                                                                         

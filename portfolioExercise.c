@@ -23,6 +23,42 @@
 
 #include "portfolioExercise_extra.h"        // Contains routines not essential to the assessment.
 
+// thread struct
+typedef struct {
+    int threadID;
+    int start;
+    int end;
+    int N;
+    float **M; // matrix pointer for multuiplicatyion
+    float *u; //input vector
+    float *v; //output vector
+    float *partialSums; // array to store partial dot products
+} ThreadData;
+
+// worker function
+void* worker(void* arg)
+{ // pthreads needs to return void* and void* argument
+    ThreadData* data = (ThreadData*)arg;
+
+    float localSum = 0.0f; // store threads partial dot product
+
+    // matrix vector multiplication 
+    for (int row = data->start; row < data->end; row++) { // split  into chunks
+        data->v[row] = 0.0f; // initalise output for this chunk
+        for (int col = 0; col < data->N; col++) {
+            data->v[row] += data->M[row][col] * data->u[col];
+        }
+    }
+
+    // partial dot producct
+    for (int i = data->start; i < data->end; i++) {
+        localSum += data->v[i] * data->v[i];
+    }
+
+    data->partialSums[data->threadID] = localSum; // store threads partial dot propduct in shared array
+
+    return NULL; // show thread has finished
+}
 
 //
 // Main.
@@ -54,11 +90,44 @@ int main( int argc, char **argv )
     float dotProduct = 0.0f;        // You should leave the result of your calculation in this variable.
 
     // Step 1. Matrix-vector multiplication Mu = v.
+    // Create thread arrays
+    pthread_t threads[nThreads]; // array to hold thread ids
+    ThreadData threadData[nThreads]; // array of structs holding each threads info
+    float partialSums[nThreads]; // store each threads specific dot product
+
+    int chunk = N / nThreads;
+
+    // Create threads
+    // loop over threads, initialising their data
+    for (int thread = 0; thread < nThreads; thread++) {
+        threadData[thread].threadID = thread;
+        // decide which part of the sum this thread will complete
+        threadData[thread].start = thread * chunk;
+        threadData[thread].end = (thread + 1) * chunk;
+        threadData[thread].N = N;
+        threadData[thread].M = M;
+        threadData[thread].u = u;
+        threadData[thread].v = v;
+        threadData[thread].partialSums = partialSums;
+
+        pthread_create(&threads[thread], NULL, worker, &threadData[thread]); // make new thread, call worker function, pass pointer to threads data struct
+    }
+
+    // Join threads
+    // Wait for all threads to finish before continuing
+    for (int thread = 0; thread < nThreads; thread++) {
+        pthread_join(threads[thread], NULL);
+    }
+
 
     // After completing Step 1, you can uncomment the following line to display M, u and v, to check your solution so far.
     // if( N<=12 ) displayProblem( N, M, u, v );
 
     // Step 2. The dot product of the vector v with itself.
+    // combine all the partial sums
+    for (int thread = 0; thread < nThreads; thread++) {
+        dotProduct += partialSums[thread];
+    }
 
     // DO NOT REMOVE OR MODIFY THIS PRINT STATEMENT AS IT IS REQUIRED BY THE ASSESSMENT.
     printf( "Result of parallel calculation: %f\n", dotProduct );
